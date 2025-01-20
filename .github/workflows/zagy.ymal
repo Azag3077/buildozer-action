@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      # Install Rustup
+      # Remove existing Rust tools if they exist
+      # - name: Remove existing Rust tools
+      #   run: |
+      #     rm -f $HOME/.cargo/bin/rust-analyzer || true
+      #     rm -f $HOME/.cargo/bin/rustfmt || true
+      #     rm -f $HOME/.cargo/bin/cargo-fmt || true
+
+      # Install Rustup
+      # - name: Install Rustup
+      #   run: curl https://sh.rustup.rs -sSf | sh -s -- -y
+
+      # used to cache dependencies with a timeout
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "::set-output name=date::$(/bin/date -u "+%Y%m%d")"
+        shell: bash
+
+      - name: Cache Buildozer global directory
+        uses: actions/cache@v2
+        with:
+          path: .buildozer_global
+          key: buildozer-global-${{ hashFiles('buildozer.spec') }} # Replace with your path
+
+      - uses: actions/cache@v2
+        with:
+          path: .buildozer
+          key: ${{ runner.os }}-${{ steps.get-date.outputs.date }}-${{ hashFiles('buildozer.spec') }}
+
+      # Configure environment for Rust
+      # - uses: actions/checkout@v4
+      # - uses: dtolnay/rust-toolchain@stable
+      # - run: |
+      #     rustup toolchain install stable
+      #     rustup default stable
+      #     rustup --version
+
+      - name: Build with Buildozer
+        uses: kengoon/buildozer-action@master
+        id: buildozer
+        with:
+          command: . $HOME/.cargo/env && buildozer android debug
+          buildozer_version: 2023.12.28
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: package
+          path: ${{ steps.buildozer.outputs.filename }}
